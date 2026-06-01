@@ -54,13 +54,13 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      # Step 7: Build Release APK (unsigned)
+      # Step 7: Build Release APK
       - name: Build Release APK
         run: gradle assembleRelease --stacktrace
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v6
         with:
-          name: FileTools-Release-APK-Unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: FileTools-Release-APK
+          path: app/build/outputs/apk/release/app-release.apk
           retention-days: 30

@@ -42,8 +42,11 @@ class ToolAdapter(
 
             toolCard.setOnClickListener {
                 val prev = selectedPosition
-                selectedPosition = holder.adapterPosition
-                notifyItemChanged(prev)
+                val current = holder.bindingAdapterPosition
+                if (current == RecyclerView.NO_POSITION) return@setOnClickListener
+
+                selectedPosition = current
+                if (prev != RecyclerView.NO_POSITION) notifyItemChanged(prev)
                 notifyItemChanged(selectedPosition)
                 onClick(tool)
             }
