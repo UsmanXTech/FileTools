@@ -7,6 +7,7 @@ import com.filetoolsapp.core.ToolItem
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.PrintWriter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -38,6 +39,8 @@ class ArchivePlugin : BasePlugin() {
             when (toolId) {
                 "zip_create" -> createZip(inputPath, outputPath, onProgress)
                 "zip_extract" -> extractZip(inputPath, outputPath, onProgress)
+                "zip_view" -> viewZipContents(inputPath, outputPath, onProgress)
+                "file_size" -> writeFileSizeReport(inputPath, outputPath, onProgress)
                 else -> Result.failure(Exception("Unknown tool: $toolId"))
             }
         } catch (e: Exception) {
@@ -84,6 +87,12 @@ class ArchivePlugin : BasePlugin() {
             var entry = zis.nextEntry
             while (entry != null) {
                 val outFile = File(outputDir, entry.name)
+                val canonicalOutput = outputDir.canonicalPath
+                val canonicalEntry = outFile.canonicalPath
+                if (!canonicalEntry.startsWith(canonicalOutput + File.separator)) {
+                    return Result.failure(Exception("Unsafe ZIP entry: ${entry.name}"))
+                }
+
                 if (entry.isDirectory) {
                     outFile.mkdirs()
                 } else {
@@ -97,5 +106,61 @@ class ArchivePlugin : BasePlugin() {
 
         onProgress(100)
         return Result.success(outputDir.absolutePath)
+    }
+
+    private fun viewZipContents(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        val entries = mutableListOf<String>()
+
+        ZipInputStream(FileInputStream(inputPath)).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val type = if (entry.isDirectory) "folder" else "file"
+                val size = if (entry.size >= 0) "${entry.size} bytes" else "unknown size"
+                entries.add("${entry.name} - $type - $size")
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+
+        onProgress(80)
+        PrintWriter(FileOutputStream(outputPath)).use { writer ->
+            writer.println("ZIP contents")
+            writer.println("Input: ${File(inputPath).name}")
+            writer.println()
+            if (entries.isEmpty()) {
+                writer.println("No entries found.")
+            } else {
+                entries.forEach { writer.println(it) }
+            }
+        }
+
+        onProgress(100)
+        return Result.success(outputPath)
+    }
+
+    private fun writeFileSizeReport(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(20)
+        val inputFile = File(inputPath)
+        val bytes = inputFile.length()
+
+        PrintWriter(FileOutputStream(outputPath)).use { writer ->
+            writer.println("File size report")
+            writer.println("File: ${inputFile.name}")
+            writer.println("Bytes: $bytes")
+            writer.println("KB: ${bytes / 1024.0}")
+            writer.println("MB: ${bytes / (1024.0 * 1024.0)}")
+        }
+
+        onProgress(100)
+        return Result.success(outputPath)
     }
 }

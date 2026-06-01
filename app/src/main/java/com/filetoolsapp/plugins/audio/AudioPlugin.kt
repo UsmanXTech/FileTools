@@ -20,11 +20,11 @@ class AudioPlugin : BasePlugin() {
     override val accentColor = R.color.accent_audio
 
     override val tools = listOf(
-        ToolItem("audio_convert", "Convert Format", "MP3, AAC, WAV, OGG", R.drawable.ic_convert),
+        ToolItem("audio_convert", "Convert to M4A", "Save audio copy", R.drawable.ic_convert),
         ToolItem("audio_trim", "Trim Audio", "Cut start and end", R.drawable.ic_trim),
-        ToolItem("audio_merge", "Merge Audio", "Join multiple files", R.drawable.ic_merge),
+        ToolItem("audio_merge", "Merge Audio", "Join multiple files", R.drawable.ic_merge, isPro = true),
         ToolItem("audio_extract", "Extract from Video", "Get audio from video", R.drawable.ic_extract),
-        ToolItem("audio_compress", "Compress Audio", "Reduce file size", R.drawable.ic_compress),
+        ToolItem("audio_compress", "Optimize Audio", "Repackage as M4A", R.drawable.ic_compress),
         ToolItem("audio_batch", "Batch Convert", "Convert multiple files", R.drawable.ic_batch, isPro = true)
     )
 
@@ -38,13 +38,71 @@ class AudioPlugin : BasePlugin() {
     ): Result<String> {
         return try {
             when (toolId) {
+                "audio_convert", "audio_compress" -> copyAudio(inputPath, outputPath, onProgress)
                 "audio_extract" -> extractAudioFromVideo(inputPath, outputPath, onProgress)
                 "audio_trim" -> trimAudio(inputPath, outputPath, params, onProgress)
-                else -> Result.failure(Exception("Tool requires FFmpeg: $toolId"))
+                else -> Result.failure(Exception("Unknown tool: $toolId"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun copyAudio(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        val extractor = MediaExtractor()
+        extractor.setDataSource(inputPath)
+
+        var audioTrackIndex = -1
+        var audioFormat: MediaFormat? = null
+
+        for (i in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(i)
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+            if (mime.startsWith("audio/")) {
+                audioTrackIndex = i
+                audioFormat = format
+                break
+            }
+        }
+
+        if (audioTrackIndex < 0 || audioFormat == null) {
+            extractor.release()
+            return Result.failure(Exception("No audio track found"))
+        }
+
+        extractor.selectTrack(audioTrackIndex)
+        onProgress(30)
+
+        val muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val muxerTrackIndex = muxer.addTrack(audioFormat)
+        muxer.start()
+
+        val buffer = ByteBuffer.allocate(1024 * 1024)
+        val bufferInfo = MediaCodec.BufferInfo()
+
+        while (true) {
+            bufferInfo.offset = 0
+            bufferInfo.size = extractor.readSampleData(buffer, 0)
+            if (bufferInfo.size < 0) break
+
+            bufferInfo.presentationTimeUs = extractor.sampleTime
+            bufferInfo.flags = extractor.sampleFlags
+            muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
+            extractor.advance()
+        }
+
+        onProgress(90)
+        muxer.stop()
+        muxer.release()
+        extractor.release()
+        onProgress(100)
+
+        return Result.success(outputPath)
     }
 
     private fun extractAudioFromVideo(

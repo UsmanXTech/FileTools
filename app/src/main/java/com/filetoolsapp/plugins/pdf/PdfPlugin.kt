@@ -7,9 +7,14 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import com.filetoolsapp.R
 import com.filetoolsapp.core.BasePlugin
 import com.filetoolsapp.core.ToolItem
+import com.itextpdf.kernel.pdf.PdfDocument as ITextPdfDocument
+import com.itextpdf.kernel.pdf.PdfReader
+import com.itextpdf.kernel.pdf.PdfWriter
 import java.io.File
 import java.io.FileOutputStream
 
@@ -22,11 +27,11 @@ class PdfPlugin : BasePlugin() {
     override val accentColor = R.color.accent_pdf
 
     override val tools = listOf(
-        ToolItem("pdf_merge", "Merge PDFs", "Combine multiple PDFs", R.drawable.ic_merge),
-        ToolItem("pdf_split", "Split PDF", "Split into pages", R.drawable.ic_split),
-        ToolItem("pdf_compress", "Compress PDF", "Reduce PDF size", R.drawable.ic_compress),
-        ToolItem("pdf_to_image", "PDF to Image", "Convert pages to images", R.drawable.ic_convert),
-        ToolItem("img_to_pdf", "Image to PDF", "Convert images to PDF", R.drawable.ic_convert),
+        ToolItem("pdf_merge", "Copy PDF", "Save a clean PDF copy", R.drawable.ic_merge),
+        ToolItem("pdf_split", "Extract First Page", "Save page 1 as PDF", R.drawable.ic_split),
+        ToolItem("pdf_compress", "Optimize PDF", "Rewrite PDF structure", R.drawable.ic_compress),
+        ToolItem("pdf_to_image", "PDF to Image", "Render first page to JPG", R.drawable.ic_convert),
+        ToolItem("img_to_pdf", "Image to PDF", "Convert image to PDF", R.drawable.ic_convert),
         ToolItem("pdf_protect", "Protect PDF", "Add password protection", R.drawable.ic_lock, isPro = true)
     )
 
@@ -40,8 +45,12 @@ class PdfPlugin : BasePlugin() {
     ): Result<String> {
         return try {
             when (toolId) {
+                "pdf_merge" -> copyPdf(inputPath, outputPath, onProgress)
+                "pdf_split" -> splitFirstPage(inputPath, outputPath, onProgress)
+                "pdf_compress" -> copyPdf(inputPath, outputPath, onProgress)
+                "pdf_to_image" -> pdfFirstPageToImage(inputPath, outputPath, onProgress)
                 "img_to_pdf" -> imageToPdf(inputPath, outputPath, onProgress)
-                else -> Result.failure(Exception("Tool: $toolId — requires iTextPDF integration"))
+                else -> Result.failure(Exception("Unknown tool: $toolId"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -77,6 +86,83 @@ class PdfPlugin : BasePlugin() {
         document.close()
         bitmap.recycle()
 
+        onProgress(100)
+        return Result.success(outputPath)
+    }
+
+    private fun copyPdf(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        PdfReader(inputPath).use { reader ->
+            PdfWriter(outputPath).use { writer ->
+                ITextPdfDocument(reader).use { source ->
+                    if (source.numberOfPages < 1) {
+                        return Result.failure(Exception("PDF has no pages"))
+                    }
+
+                    ITextPdfDocument(writer).use { target ->
+                        onProgress(60)
+                        source.copyPagesTo(1, source.numberOfPages, target)
+                    }
+                }
+            }
+        }
+        onProgress(100)
+        return Result.success(outputPath)
+    }
+
+    private fun splitFirstPage(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        PdfReader(inputPath).use { reader ->
+            PdfWriter(outputPath).use { writer ->
+                ITextPdfDocument(reader).use { source ->
+                    if (source.numberOfPages < 1) {
+                        return Result.failure(Exception("PDF has no pages"))
+                    }
+
+                    ITextPdfDocument(writer).use { target ->
+                        onProgress(60)
+                        source.copyPagesTo(1, 1, target)
+                    }
+                }
+            }
+        }
+        onProgress(100)
+        return Result.success(outputPath)
+    }
+
+    private fun pdfFirstPageToImage(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        val inputFile = File(inputPath)
+        ParcelFileDescriptor.open(inputFile, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                if (renderer.pageCount < 1) {
+                    return Result.failure(Exception("PDF has no pages"))
+                }
+
+                renderer.openPage(0).use { page ->
+                    val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+                    bitmap.eraseColor(Color.WHITE)
+                    onProgress(60)
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    FileOutputStream(outputPath).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    }
+                    bitmap.recycle()
+                }
+            }
+        }
         onProgress(100)
         return Result.success(outputPath)
     }

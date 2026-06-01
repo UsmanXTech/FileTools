@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import com.filetoolsapp.R
 import com.filetoolsapp.core.BasePlugin
 import com.filetoolsapp.core.ToolItem
-import java.io.File
 import java.io.FileOutputStream
 
 class ImagePlugin : BasePlugin() {
@@ -18,11 +17,11 @@ class ImagePlugin : BasePlugin() {
     override val accentColor = R.color.accent_image
 
     override val tools = listOf(
-        ToolItem("img_convert", "Convert Format", "PNG, JPG, WEBP, BMP", R.drawable.ic_convert),
-        ToolItem("img_compress", "Compress Image", "Reduce file size", R.drawable.ic_compress),
-        ToolItem("img_resize", "Resize Image", "Change dimensions", R.drawable.ic_resize),
-        ToolItem("img_rotate", "Rotate & Flip", "Rotate or mirror", R.drawable.ic_rotate),
-        ToolItem("img_crop", "Crop Image", "Crop to selection", R.drawable.ic_crop),
+        ToolItem("img_convert", "Convert to JPG", "Save a JPG copy", R.drawable.ic_convert),
+        ToolItem("img_compress", "Compress Image", "Save smaller JPG", R.drawable.ic_compress),
+        ToolItem("img_resize", "Resize 50%", "Scale image down", R.drawable.ic_resize),
+        ToolItem("img_rotate", "Rotate 90 deg", "Rotate clockwise", R.drawable.ic_rotate),
+        ToolItem("img_crop", "Center Crop", "Crop to square", R.drawable.ic_crop),
         ToolItem("img_batch", "Batch Convert", "Convert multiple files", R.drawable.ic_batch, isPro = true)
     )
 
@@ -40,6 +39,7 @@ class ImagePlugin : BasePlugin() {
                 "img_compress" -> compressImage(inputPath, outputPath, params, onProgress)
                 "img_resize" -> resizeImage(inputPath, outputPath, params, onProgress)
                 "img_rotate" -> rotateImage(inputPath, outputPath, params, onProgress)
+                "img_crop" -> cropImage(inputPath, outputPath, onProgress)
                 else -> Result.failure(Exception("Unknown tool: $toolId"))
             }
         } catch (e: Exception) {
@@ -60,7 +60,7 @@ class ImagePlugin : BasePlugin() {
         onProgress(50)
         val format = when (params["format"] as? String ?: "jpg") {
             "png" -> Bitmap.CompressFormat.PNG
-            "webp" -> Bitmap.CompressFormat.WEBP_LOSSLESS
+            "webp" -> Bitmap.CompressFormat.WEBP
             else -> Bitmap.CompressFormat.JPEG
         }
         val quality = (params["quality"] as? Int) ?: 90
@@ -144,4 +144,30 @@ class ImagePlugin : BasePlugin() {
         onProgress(100)
         return Result.success(outputPath)
     }
+
+    private fun cropImage(
+        inputPath: String,
+        outputPath: String,
+        onProgress: (Int) -> Unit
+    ): Result<String> {
+        onProgress(10)
+        val bitmap = BitmapFactory.decodeFile(inputPath)
+            ?: return Result.failure(Exception("Could not decode image"))
+
+        val size = minOf(bitmap.width, bitmap.height)
+        val left = (bitmap.width - size) / 2
+        val top = (bitmap.height - size) / 2
+
+        onProgress(60)
+        val cropped = Bitmap.createBitmap(bitmap, left, top, size, size)
+        bitmap.recycle()
+
+        FileOutputStream(outputPath).use { out ->
+            cropped.compress(Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        cropped.recycle()
+        onProgress(100)
+        return Result.success(outputPath)
+    }
+
 }

@@ -3,6 +3,7 @@ package com.filetoolsapp.utils
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import java.io.File
 import java.io.FileOutputStream
 
@@ -61,5 +62,22 @@ object FileUtils {
 
     fun removeExtension(fileName: String): String {
         return fileName.substringBeforeLast(".")
+    }
+
+    fun getMimeType(file: File): String {
+        if (file.isDirectory) return "*/*"
+
+        val extension = file.extension.lowercase()
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: when (extension) {
+            "pdf" -> "application/pdf"
+            "zip" -> "application/zip"
+            "txt" -> "text/plain"
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "mp4" -> "video/mp4"
+            "m4a" -> "audio/mp4"
+            else -> "*/*"
+        }
     }
 }
