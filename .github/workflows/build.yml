@@ -23,16 +23,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 3: Cache Gradle (speeds up future builds)
-      - name: Cache Gradle
-        uses: actions/cache@v5
+      # Step 3: Setup Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          gradle-version: '8.0'
 
       # Step 4: Download Inter fonts automatically
       - name: Download Inter Fonts
@@ -47,15 +42,11 @@ jobs:
           echo "Fonts downloaded:"
           ls app/src/main/res/font/
 
-      # Step 5: Make gradlew executable
-      - name: Make Gradle executable
-        run: chmod +x gradlew
-
-      # Step 6: Build Debug APK
+      # Step 5: Build Debug APK
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
-      # Step 7: Upload APK as artifact (download from GitHub)
+      # Step 6: Upload APK as artifact (download from GitHub)
       - name: Upload Debug APK
         uses: actions/upload-artifact@v6
         with:
@@ -63,9 +54,9 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      # Step 8: Build Release APK (unsigned)
+      # Step 7: Build Release APK (unsigned)
       - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
+        run: gradle assembleRelease --stacktrace
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v6
