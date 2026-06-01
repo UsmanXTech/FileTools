@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FileTools</string>
+    <string name="tagline">All offline. All free.</string>
+    <string name="pick_file">Pick File</string>
+    <string name="process_file">Process File</string>
+    <string name="select_tool">Select a Tool</string>
+    <string name="search_hint">Search tools…</string>
+    <string name="done">Done</string>
+    <string name="share">Share</string>
+    <string name="open">Open</string>
+    <string name="pro_feature">Pro Feature</string>
+    <string name="processing">Processing…</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FONT SETUP INSTRUCTIONS:
+    1. Open Android Studio
+    2. Right-click res/font → New → Font Resource File
+    3. Or download manually from fonts.google.com/specimen/Inter
+    4. Place these 3 files in res/font/:
+         inter_regular.ttf   (Weight 400)
+         inter_semibold.ttf  (Weight 600)
+         inter_bold.ttf      (Weight 700)
+
+    Alternatively use Google Fonts in Android Studio:
+    Right-click any text view → fontFamily → More Fonts → search "Inter"
+-->
