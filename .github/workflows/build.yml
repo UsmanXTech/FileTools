@@ -7,9 +7,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:  # Manual trigger button on GitHub
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,18 +14,18 @@ jobs:
     steps:
       # Step 1: Checkout code
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Step 2: Setup Java
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
 
       # Step 3: Cache Gradle (speeds up future builds)
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -60,7 +57,7 @@ jobs:
 
       # Step 7: Upload APK as artifact (download from GitHub)
       - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FileTools-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -71,7 +68,7 @@ jobs:
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FileTools-Release-APK-Unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk
